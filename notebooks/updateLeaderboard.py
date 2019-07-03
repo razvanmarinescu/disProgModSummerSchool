@@ -118,25 +118,13 @@ class DropboxObj:
       return rv
 
 
-def writeHTMLtable(evalResults, htmlFile, forecastFiles, fileDatesRemote):
+def writeHTMLtable(evalResults, htmlFile, forecastFiles):
   html = open(htmlFile, 'w')
-  text = r'''
-  <style>
-tr.d0 td {
-  background-color: #ffffff;
-  color: black;
-}
-tr.d1 td {
-  background-color: #ffffff;
-  color: black;
-}
-</style>
-'''
-  text += 'Table last updated on %s' % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M (UTC+0)') )
-  text += '<table  class="sortable smallfont" style="width: 880px; table-layout: fixed;"  >\n'
+  text = 'Table last updated on %s' % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M (UTC+0)') )
+  text += '<table  class="sortable smallfont" style="width: 780px; table-layout: fixed;"  >\n'
   text += r'''
   <col width="30">
-  <col width="70">
+  <col width="40">
   <col width="35">
   <col width="30">
   <col width="40">
@@ -172,7 +160,7 @@ tr.d1 td {
       text += '<td style="word-wrap: break-word">%s</td><td>' % evalResults['TEAMNAME'].iloc[f]
       text += '</td><td>'.join(
         [ strFmt % n for strFmt, n in zip(formatStrsMeasures, evalResults.loc[f,'MAUC':'ventsCPA'])] +
-        [fileDatesRemote[f].strftime('%Y-%m-%d %H:%M (UTC+0)')])
+        [evalResults.loc[f, 'Date'].strftime('%Y-%m-%d %H:%M (UTC+0)')])
       text += '</td></tr>\n'
 
   text += '</tbody>\n</table>'
@@ -202,7 +190,7 @@ def downloadLeaderboardSubmissions():
 
   # entriesList = [0,1,2]
   tableColumns = ('TEAMNAME', 'RANK' , 'MAUC', 'BCA',
-    'adasMAE', 'ventsMAE', 'adasWES', 'ventsWES', 'adasCPA', 'ventsCPA')
+    'adasMAE', 'ventsMAE', 'adasWES', 'ventsWES', 'adasCPA', 'ventsCPA', 'Date')
 
   if args.runPart[0] == 'R':
     if args.fast:
@@ -238,7 +226,9 @@ def downloadLeaderboardSubmissions():
       ldbDropbox.download(localPath, remotePath)
 
       metadataFileRemote = ldbDropbox.dbx.files_get_metadata(remotePath)
-      fileDatesRemote += [metadataFileRemote.server_modified]
+      print(metadataFileRemote)
+      #if 'LR_Eman' in fileName:
+      #  asd
 
       print('Evaluating %s' % fileName)
       forecastDf = pd.read_csv(localPath)
@@ -247,6 +237,8 @@ def downloadLeaderboardSubmissions():
       'adasMAE', 'ventsMAE', 'adasWES', 'ventsWES', 'adasCPA', 'ventsCPA']] = \
           evalOneSubmission.evalOneSub(lb4Df, forecastDf)
         evalResults.loc[entryToAddIndex, 'TEAMNAME'] = teamName
+        evalResults.loc[entryToAddIndex, 'Date'] = metadataFileRemote.server_modified
+
       except :
         print('Error while processing submission %s' % fileName)
         pass
@@ -255,6 +247,7 @@ def downloadLeaderboardSubmissions():
       # if not np.isnan(evalResults['MAUC'].iloc[f]):
 
       entryToAddIndex += 1
+
 
 
     nanMask = np.isnan(evalResults['MAUC'])
@@ -279,6 +272,7 @@ def downloadLeaderboardSubmissions():
   rankADAS = rankdata(rankdata(evalResults.as_matrix(columns = ['adasMAE']).reshape(-1), method='average'), method='average')
   rankVENTS = rankdata(rankdata(evalResults.as_matrix(columns = ['ventsMAE']).reshape(-1), method='average'), method='average')
 
+
   print('rankMAUC', rankMAUC)
   print('rankADAS', rankADAS)
   print('rankVENTS', rankVENTS)
@@ -298,7 +292,7 @@ def downloadLeaderboardSubmissions():
 
   htmlFileFullPathRemote = '%s/%s' % (dropboxRemoteFolder, htmlFile)
   htmlFileFullPathLocal = '%s/%s' % (ldbSubmissionsFld, htmlFile)
-  writeHTMLtable(evalResults, htmlFileFullPathLocal, fileListLdb, fileDatesRemote)
+  writeHTMLtable(evalResults, htmlFileFullPathLocal, fileListLdb)
   ldbDropbox.upload(htmlFileFullPathLocal, htmlFileFullPathRemote)
 
 if __name__ == '__main__':
